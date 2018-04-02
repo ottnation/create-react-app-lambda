@@ -28,29 +28,35 @@ import netlifyIdentity from "netlify-identity-widget";
   }
 }**/
 class SlackMessage extends Component {
+  
   constructor(props) {
     super(props);
     this.state = {loading: false, text: null, error: null, success: false};
   }
+
   handleText = (e) => {
     this.setState({text: e.target.value});
   };
+
   handleSubmit = (e) => {
     e.preventDefault();
     this.setState({loading: true});
-    fetch('/.netlify/functions/slack', {
-      method: "POST",
-      body: JSON.stringify({
-        text: this.state.text
+    this.generateHeaders().then((headers) => {
+      fetch('/.netlify/functions/slack', {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          text: this.state.text
+        })
       })
-    })
-    .then(response => {
-      if (!response.ok) {
-        return response.text().then(err => {throw(err)});
-      }
-    })
-    .then(() => this.setState({loading: false, text: null, success: true, error: null}))
-    .catch(err => this.setState({loading: false, success: false, error: err.toString()}))
+      .then(response => {
+        if (!response.ok) {
+          return response.text().then(err => {throw(err)});
+        }
+      })
+      .then(() => this.setState({loading: false, text: null, success: true, error: null}))
+      .catch(err => this.setState({loading: false, success: false, error: err.toString()}))
+    });
   }
   render() {
     const {loading, text, error, success} = this.state;
@@ -70,13 +76,16 @@ class SlackMessage extends Component {
 }
 
 class App extends Component {
+
   componentDidMount() {
     netlifyIdentity.init();
   }
+
   handleIdentity = (e) => {
     e.preventDefault();
     netlifyIdentity.open();
   }
+
   render() {
     return (
       <div className="App">
@@ -87,6 +96,16 @@ class App extends Component {
         <SlackMessage />
       </div>
     );
+  }
+   
+  generateHeaders() {
+    const headers = { "Content-Type": "application/json" };
+    if (netlifyIdentity.currentUser()) {
+      return netlifyIdentity.currentUser().jwt().then((token) => {
+        return { ...headers, Authorization: `Bearer ${token}` };
+      })
+    }
+    return Promise.resolve(headers);
   }
 }
 
